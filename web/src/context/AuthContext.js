@@ -1,13 +1,34 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { getSupabaseClient } from "../lib/supabaseClient";
 
 /**
  * PUBLIC_INTERFACE
- * AuthContext provides a local-only mock authentication and role toggle.
- * Roles: 'employee' | 'manager' | 'admin'
- * Note: This is a mock and performs no network calls.
- * TODO: Replace with Supabase Auth integration.
+ * AuthContext provides authentication and role handling.
+ * - In MOCK mode (REACT_APP_MOCK_MODE === 'true' OR Supabase env missing), it falls back to local mock auth.
+ * - In REAL mode, it uses Supabase Auth session and user metadata:
+ *    roles: string[] in user_metadata (e.g., ["employee","manager"])
+ *    We derive a primary role: 'employee' | 'manager' | 'admin' (default 'employee').
+ * TODO: Add OAuth providers (Google/Microsoft) via Supabase in future.
  */
 const AuthContext = createContext(null);
+
+// Helpers
+const DEFAULT_ROLE = "employee";
+const ROLE_ORDER = ["admin", "manager", "employee"];
+function derivePrimaryRole(meta) {
+  const roles = Array.isArray(meta?.roles)
+    ? meta.roles
+    : meta?.role
+    ? [meta.role]
+    : [];
+  if (!roles || roles.length === 0) return DEFAULT_ROLE;
+  // Choose highest privilege found based on ROLE_ORDER priority
+  const normalized = roles.map((r) => String(r).toLowerCase());
+  for (const r of ROLE_ORDER) {
+    if (normalized.includes(r)) return r;
+  }
+  return DEFAULT_ROLE;
+}
 
 // PUBLIC_INTERFACE
 export function useAuth() {
@@ -21,47 +42,154 @@ export function useAuth() {
 export function AuthProvider({ children }) {
   /**
    * Provides auth state and actions to descendants.
-   * This is a mock; uses localStorage for persistence of role and display name.
+   * In MOCK mode, uses localStorage for persistence of role and display name.
+   * In REAL mode, subscribes to Supabase auth state.
    */
-  const [role, setRole] = useState(() => {
-    return localStorage.getItem("mock_role") || "employee";
-  });
-  const [user, setUser] = useState(() => {
+  const supabase = getSupabaseClient();
+  const hasSupabaseEnv =
+    Boolean(process.env.REACT_APP_SUPABASE_URL) &&
+    Boolean(process.env.REACT_APP_SUPABASE_ANON_KEY);
+  const envMock = String(process.env.REACT_APP_MOCK_MODE || "").toLowerCase() === "true";
+  const [mockMode, setMockMode] = useState(() => envMock || !hasSupabaseEnv);
+
+  // MOCK state
+  const [mockRole, setMockRole] = useState(() => localStorage.getItem("mock_role") || DEFAULT_ROLE);
+  const [mockUser, setMockUser] = useState(() => {
     const saved = localStorage.getItem("mock_user");
     return saved ? JSON.parse(saved) : { name: "Alex Johnson", email: "alex@example.com" };
   });
 
-  useEffect(() => {
-    localStorage.setItem("mock_role", role);
-  }, [role]);
+  // REAL state (Supabase)
+  const [session, setSession] = useState(null);
+  const [sbUser, setSbUser] = useState(null); // supabase user object
 
+  // Persist MOCK
   useEffect(() => {
-    localStorage.setItem("mock_user", JSON.stringify(user));
-  }, [user]);
+    if (!mockMode) return;
+    localStorage.setItem("mock_role", mockRole);
+  }, [mockMode, mockRole]);
+  useEffect(() => {
+    if (!mockMode) return;
+    localStorage.setItem("mock_user", JSON.stringify(mockUser));
+  }, [mockMode, mockUser]);
 
-  const value = useMemo(
-    () => ({
-      role,
-      user,
+  // Subscribe to Supabase auth state in REAL mode
+  useEffect(() => {
+    if (mockMode) return;
+    let active = true;
+
+    async function init() {
+      try {
+        const { data } = await supabase.auth.getSession();
+        if (!active) return;
+        setSession(data?.session || null);
+        setSbUser(data?.session?.user || null);
+      } catch (e) {
+        console.warn("Supabase getSession failed:", e);
+      }
+    }
+    init();
+
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, newSession) => {
+      setSession(newSession);
+      setSbUser(newSession?.user || null);
+    });
+
+    return () => {
+      active = false;
+      sub?.subscription?.unsubscribe();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mockMode]);
+
+  // PUBLIC API surface
+  const value = useMemo(() => {
+    if (mockMode) {
+      return {
+        mockMode: true,
+        role: mockRole,
+        roles: [mockRole],
+        user: mockUser,
+        session: null,
+        // PUBLIC_INTERFACE
+        setRole: setMockRole, // Set 'employee' | 'manager' | 'admin'
+        // PUBLIC_INTERFACE
+        setUser: setMockUser, // Update mock user profile
+        // PUBLIC_INTERFACE
+        signOut: () => {
+          setMockUser(null);
+        },
+        // PUBLIC_INTERFACE
+        signIn: (name = "Alex Johnson", email = "alex@example.com") => {
+          setMockUser({ name, email });
+        },
+        // PUBLIC_INTERFACE
+        signInWithPassword: async () => {
+          // Not applicable in mock mode; return a soft error.
+          return { error: new Error("Auth disabled in MOCK mode") };
+        },
+        // PUBLIC_INTERFACE
+        signUpWithPassword: async () => {
+          return { error: new Error("Auth disabled in MOCK mode") };
+        },
+      };
+    }
+
+    // REAL mode (Supabase)
+    const meta = sbUser?.user_metadata || {};
+    const primaryRole = derivePrimaryRole(meta);
+    const displayUser =
+      sbUser
+        ? {
+            name: meta?.full_name || meta?.name || sbUser.email?.split("@")[0] || "User",
+            email: sbUser.email || "",
+          }
+        : null;
+
+    return {
+      mockMode: false,
+      role: primaryRole,
+      roles: Array.isArray(meta?.roles) && meta.roles.length > 0 ? meta.roles : [primaryRole],
+      user: displayUser,
+      session,
       // PUBLIC_INTERFACE
-      setRole, // Set one of 'employee' | 'manager' | 'admin'
-      // PUBLIC_INTERFACE
-      setUser, // Update mock user profile
-      // PUBLIC_INTERFACE
-      signOut: () => {
-        // Mock sign-out
-        // TODO: Replace with Supabase Auth signOut()
-        setUser(null);
+      setRole: () => {
+        // For REAL mode, UI can manage role locally via Settings until backend exists.
+        // We keep this NO-OP to prevent accidental role change in metadata without a backend.
+        console.info("Role changes are simulated locally until backend is ready.");
       },
       // PUBLIC_INTERFACE
-      signIn: (name = "Alex Johnson", email = "alex@example.com") => {
-        // Mock sign-in
-        // TODO: Replace with Supabase Auth signInWithOAuth()
-        setUser({ name, email });
+      setUser: () => {
+        console.info("Direct user profile updates are not supported yet.");
       },
-    }),
-    [role, user]
-  );
+      // PUBLIC_INTERFACE
+      signOut: async () => {
+        await supabase.auth.signOut();
+      },
+      // PUBLIC_INTERFACE
+      signIn: async () => {
+        // Kept for backward compatibility (used by Header prior to UI routes).
+        // Suggest using signInWithPassword via the /auth/login page.
+        console.info("Use signInWithPassword from the Sign In page.");
+      },
+      // PUBLIC_INTERFACE
+      signInWithPassword: async ({ email, password }) => {
+        return await supabase.auth.signInWithPassword({ email, password });
+      },
+      // PUBLIC_INTERFACE
+      signUpWithPassword: async ({ email, password }) => {
+        // Default roles to ['employee'] in metadata
+        return await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            data: { roles: ["employee"] },
+            emailRedirectTo: process.env.REACT_APP_FRONTEND_URL || window.location.origin,
+          },
+        });
+      },
+    };
+  }, [mockMode, mockRole, mockUser, sbUser, session, supabase]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

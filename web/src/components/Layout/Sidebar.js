@@ -9,7 +9,7 @@ const navLinkClass = ({ isActive }) =>
  * Sidebar navigation following Ocean Professional theme.
  */
 export default function Sidebar() {
-  const { role } = useAuth();
+  const { role, mockMode } = useAuth();
 
   return (
     <aside className="sidebar">
@@ -33,7 +33,7 @@ export default function Sidebar() {
       </nav>
       <div className="sidebar-footer">
         <div className="role-pill">Role: {role}</div>
-        <div className="note">Mock UI • No network</div>
+        <div className="note">{mockMode ? "Mock Auth • No network" : "Supabase Auth"}</div>
       </div>
     </aside>
   );

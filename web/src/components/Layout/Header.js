@@ -7,7 +7,7 @@ import RoleToggle from "../RoleToggle";
  * Top header with user info and quick actions.
  */
 export default function Header() {
-  const { user, signOut, signIn } = useAuth();
+  const { user, signOut, mockMode } = useAuth();
   const { pathname } = useLocation();
 
   return (
@@ -30,10 +30,12 @@ export default function Header() {
               <div className="user-name">{user.name}</div>
               <div className="user-email">{user.email}</div>
             </div>
-            <button className="btn btn-ghost" onClick={signOut} title="Mock Sign Out">Sign out</button>
+            <button className="btn btn-ghost" onClick={signOut} title="Sign Out">Sign out</button>
           </div>
         ) : (
-          <button className="btn btn-outline" onClick={() => signIn()} title="Mock Sign In">Sign in</button>
+          <Link to="/auth/login" className="btn btn-outline" title={mockMode ? "Mock Sign In" : "Sign In"}>
+            Sign in
+          </Link>
         )}
       </div>
     </header>

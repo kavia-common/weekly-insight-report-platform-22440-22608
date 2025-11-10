@@ -5,3 +5,5 @@ export { default as ReportDetail } from "./ReportDetail";
 export { default as History } from "./History";
 export { default as Settings } from "./Settings";
 export { default as NotFound } from "./NotFound";
+export { default as AuthSignIn } from "./AuthSignIn";
+export { default as AuthSignUp } from "./AuthSignUp";
