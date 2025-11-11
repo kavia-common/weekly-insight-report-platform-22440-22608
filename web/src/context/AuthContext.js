@@ -104,13 +104,19 @@ export function AuthProvider({ children }) {
 
   // PUBLIC API surface
   const value = useMemo(() => {
+    // helper to check manager/admin
+    const isManagerOrAdmin = (r) => r === "manager" || r === "admin";
+
     if (mockMode) {
+      const canSeeAISummary = isManagerOrAdmin(mockRole);
       return {
         mockMode: true,
         role: mockRole,
         roles: [mockRole],
         user: mockUser,
         session: null,
+        // PUBLIC_INTERFACE
+        canSeeAISummary, // visible only in mock mode when role is manager/admin
         // PUBLIC_INTERFACE
         setRole: setMockRole, // Set 'employee' | 'manager' | 'admin'
         // PUBLIC_INTERFACE
@@ -146,12 +152,17 @@ export function AuthProvider({ children }) {
           }
         : null;
 
+    // In REAL mode, keep placeholder hidden until real AI integration lands
+    const canSeeAISummary = false;
+
     return {
       mockMode: false,
       role: primaryRole,
       roles: Array.isArray(meta?.roles) && meta.roles.length > 0 ? meta.roles : [primaryRole],
       user: displayUser,
       session,
+      // PUBLIC_INTERFACE
+      canSeeAISummary, // explicitly exposed; false in REAL mode
       // PUBLIC_INTERFACE
       setRole: () => {
         // For REAL mode, UI can manage role locally via Settings until backend exists.

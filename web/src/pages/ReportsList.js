@@ -13,7 +13,7 @@ import { useAuth } from "../context/AuthContext";
  */
 export default function ReportsList() {
   const { reports, deleteReport } = useReports();
-  const { role, user } = useAuth();
+  const { role, user, canSeeAISummary } = useAuth();
   const [tab, setTab] = useState("all"); // 'all' | 'mine'
 
   // Filtered list based on selected tab and current user (email as identifier).
@@ -68,6 +68,9 @@ export default function ReportsList() {
             <div>{r.team || "-"}</div>
             <div className="row-actions">
               <Link className="btn btn-ghost" to={`/reports/${r.id}`}>Open</Link>
+              {canSeeAISummary && (
+                <span className="muted" title="AI summary placeholder available in detail view">AI</span>
+              )}
               {(role === "manager" || role === "admin") && (
                 <button className="btn btn-outline" onClick={() => deleteReport(r.id)}>Delete</button>
               )}

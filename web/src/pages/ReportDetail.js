@@ -12,7 +12,7 @@ import { useAuth } from "../context/AuthContext";
 export default function ReportDetail() {
   const { id } = useParams();
   const { getReport, updateReport, deleteReport, generateMockSummary } = useReports();
-  const { role } = useAuth();
+  const { role, canSeeAISummary, mockMode } = useAuth();
   const { showToast } = useToast();
   const navigate = useNavigate();
 
@@ -111,18 +111,30 @@ export default function ReportDetail() {
         </label>
       </form>
 
-      <section className="ai-summary">
-        <div className="ai-header">
-          <h3>AI Summary (placeholder)</h3>
-          <button className="btn btn-ghost" onClick={genSummary}>Generate</button>
-        </div>
-        <div className={`ai-box ${report.aiSummary ? "" : "muted"}`}>
-          {report.aiSummary || "No summary yet. Click Generate to create a mock summary."}
-        </div>
-        <div className="ai-note">
-          TODO: Integrate Supabase Functions or backend service for real AI summaries.
-        </div>
-      </section>
+      {canSeeAISummary && (
+        <section className="ai-summary">
+          <div className="ai-header">
+            <h3>AI Summary (placeholder)</h3>
+            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              <button
+                className="btn btn-ghost"
+                onClick={genSummary}
+                disabled={!mockMode}
+                title={mockMode ? "Generate mock summary" : "Available in MOCK mode only"}
+              >
+                {mockMode ? "Generate Summary" : "Generate (disabled)"}
+              </button>
+              {!mockMode && <span className="muted" aria-hidden>⏳</span>}
+            </div>
+          </div>
+          <div className={`ai-box ${report.aiSummary ? "" : "muted"}`}>
+            {report.aiSummary || "No summary yet. Click Generate to create a mock summary."}
+          </div>
+          <div className="ai-note">
+            This is a placeholder shown to managers/admins in mock mode. Real AI summaries will be integrated later.
+          </div>
+        </section>
+      )}
     </Layout>
   );
 }
