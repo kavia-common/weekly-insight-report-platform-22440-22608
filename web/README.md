@@ -15,6 +15,13 @@ To enable REAL mode:
 
 The Supabase client is initialized in src/lib/supabaseClient.js and gracefully falls back to a mock client if env vars are missing so builds do not fail.
 
+If you see a compile error about "../lib/supabaseClient" missing, ensure the file exists at:
+- web/src/lib/supabaseClient.js
+
+This repo includes it. If you copied files selectively, restore that path or update imports in:
+- src/context/AuthContext.js
+- src/pages/AuthSignIn.js
+
 ## Features
 
 - **Lightweight**: No heavy UI frameworks - uses only vanilla CSS and React
