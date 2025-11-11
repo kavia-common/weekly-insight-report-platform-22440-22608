@@ -4,11 +4,12 @@ import { getSupabaseClient } from "../lib/supabaseClient";
 /**
  * PUBLIC_INTERFACE
  * AuthContext provides authentication and role handling.
- * - In MOCK mode (REACT_APP_MOCK_MODE === 'true' OR Supabase env missing), it falls back to local mock auth.
+ * - Uses the existing supabaseClient when REACT_APP_SUPABASE_URL and REACT_APP_SUPABASE_ANON_KEY are set (REAL mode).
+ * - Falls back to MOCK mode only if env is not configured or REACT_APP_MOCK_MODE === 'true'.
  * - In REAL mode, it uses Supabase Auth session and user metadata:
  *    roles: string[] in user_metadata (e.g., ["employee","manager"])
  *    We derive a primary role: 'employee' | 'manager' | 'admin' (default 'employee').
- * TODO: Add OAuth providers (Google/Microsoft) via Supabase in future.
+ * OAuth: The Sign In page initiates Google OAuth via Supabase; Microsoft is planned.
  */
 const AuthContext = createContext(null);
 
