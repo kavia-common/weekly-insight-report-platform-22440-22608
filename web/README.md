@@ -2,6 +2,19 @@
 
 This project provides a minimal React template with a clean, modern UI and minimal dependencies.
 
+## Supabase configuration
+
+Auth can run in two modes:
+- MOCK mode (default if env is not configured): local in-memory auth suitable for offline demos.
+- REAL mode (when Supabase env vars are set): uses Supabase Auth.
+
+To enable REAL mode:
+1) Copy .env.example to .env in the web directory.
+2) Set REACT_APP_SUPABASE_URL and REACT_APP_SUPABASE_ANON_KEY from your Supabase project.
+3) Optionally set REACT_APP_FRONTEND_URL to your site URL for email redirects (defaults to window.location.origin).
+
+The Supabase client is initialized in src/lib/supabaseClient.js and gracefully falls back to a mock client if env vars are missing so builds do not fail.
+
 ## Features
 
 - **Lightweight**: No heavy UI frameworks - uses only vanilla CSS and React
